@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const response = await fetch(`${apiBase}/knowledge-base`);
+const articles = response.ok ? await response.json() : [];
+---
+<BaseLayout title="SupportOps Desk · Knowledge Base">
+  <h2>Knowledge Base</h2>
+  <div class="grid">
+    {articles.map((article) => (
+      <article class="card" key={article.id}>
+        <h3>{article.title}</h3>
+        <p class="pill">{article.category}</p>
+        <p>{article.content}</p>
+        <p><strong>Visibility:</strong> {article.visibility}</p>
+      </article>
+    ))}
+  </div>
+</BaseLayout>
