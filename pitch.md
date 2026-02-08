@@ -1,4 +1,4 @@
-\# SupportOps Desk – MVP Pitch Copy
+\# SupportOps Desk (MVP Pitch)
 
 
 
