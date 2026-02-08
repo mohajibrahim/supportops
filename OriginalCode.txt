@@ -1,0 +1,1402 @@
+
+Logs
+
+supportops/README.md
+supportops/README.md
+New
++78
+-0
+
+# SupportOps Desk MVP (Laravel + Astro)
+
+SupportOps Desk is a lightweight **application support and incident management** platform designed to mirror the responsibilities of an Application Support Specialist. It provides incident tracking, root cause analysis (RCA), a knowledge base, change requests, and SQL-driven reporting.
+
+## Why this MVP fits the CFPC role
+
+- **Incident management**: track issues, status, priority, and ownership.
+- **Problem management & RCA**: capture root causes and prevention steps.
+- **Knowledge base**: author reusable troubleshooting articles.
+- **Change management**: document releases, approvals, and risk levels.
+- **Reporting**: run SQL-backed operational reports.
+
+## Tech Stack
+
+- **Backend**: Laravel (API)
+- **Database**: MySQL
+- **Frontend**: Astro (server-rendered pages)
+
+## Project Structure
+
+```
+supportops/
+├── backend/                 # Laravel app files to copy into a fresh Laravel project
+├── frontend/                # Astro app
+├── api-endpoints.md         # API design reference
+├── schema.sql               # MySQL schema (for reference)
+└── pitch.md                 # Pitch copy for job application
+```
+
+## Copy the MVP into your Ubuntu workspace
+
+If you want this MVP in a dedicated folder (for example `~/supportops`), copy it out of this repo first:
+
+```bash
+mkdir -p ~/supportops
+cp -R /path/to/ai-agents-for-beginners/supportops/* ~/supportops/
+```
+
+Then continue the setup steps from inside `~/supportops`.
+
+## Local Setup (Ubuntu 22.04 + MySQL)
+
+### 1) Backend (Laravel)
+
+Follow the instructions in [`supportops/backend/README.md`](./backend/README.md) to scaffold a Laravel app and copy in the MVP files.
+
+### 2) Frontend (Astro)
+
+```bash
+cd supportops/frontend
+npm install
+npm run dev
+```
+
+Astro defaults to `http://localhost:4321`. The frontend expects the API at `http://127.0.0.1:8000/api`.
+
+If your API runs elsewhere, set:
+
+```bash
+export PUBLIC_API_BASE_URL="http://127.0.0.1:8000/api"
+```
+
+## Running Astro on Windows 11
+
+Yes — Astro runs well on Windows 11. Install Node.js (18+), then:
+
+```powershell
+cd supportops\frontend
+npm install
+npm run dev
+```
+
+## Next Enhancements
+
+- Add Laravel Sanctum authentication + role-based permissions.
+- Add audit logging for incident changes.
+- Add report export (CSV, PDF).
+- Add SLA timers and escalation rules.
+supportops/api-endpoints.md
+supportops/api-endpoints.md
+New
++43
+-0
+
+# SupportOps Desk API Endpoints
+
+Base URL: `http://127.0.0.1:8000/api`
+
+## Health
+
+- `GET /health` → `{ "status": "ok" }`
+
+## Incidents
+
+- `GET /incidents`
+- `POST /incidents`
+- `GET /incidents/{incident}`
+- `PUT /incidents/{incident}`
+- `DELETE /incidents/{incident}`
+
+## Root Cause Analysis
+
+- `GET /incidents/{incident}/root-cause-analysis`
+- `POST /incidents/{incident}/root-cause-analysis`
+
+## Knowledge Base
+
+- `GET /knowledge-base`
+- `POST /knowledge-base`
+- `GET /knowledge-base/{knowledge_base_article}`
+- `PUT /knowledge-base/{knowledge_base_article}`
+- `DELETE /knowledge-base/{knowledge_base_article}`
+
+## Change Requests
+
+- `GET /change-requests`
+- `POST /change-requests`
+- `GET /change-requests/{change_request}`
+- `PUT /change-requests/{change_request}`
+- `DELETE /change-requests/{change_request}`
+
+## Reports
+
+- `GET /reports`
+- `POST /reports`
+- `GET /reports/{report}`
+- `POST /reports/{report}/run` (executes saved SQL query)
+supportops/backend/README.md
+supportops/backend/README.md
+New
++59
+-0
+
+# SupportOps Desk Backend (Laravel)
+
+This folder contains the **Laravel-specific files** (controllers, models, migrations, routes, and seeders) for the SupportOps Desk MVP. To run locally, you will scaffold a fresh Laravel app and copy these files in.
+
+## 1) Prerequisites
+
+- PHP 8.2+
+- Composer
+- MySQL 8+
+
+## 2) Scaffold a fresh Laravel app
+
+From the repo root:
+
+```bash
+composer create-project laravel/laravel supportops-backend
+```
+
+## 3) Copy in the MVP files
+
+```bash
+cp -R supportops/backend/app supportops-backend/
+cp -R supportops/backend/database supportops-backend/
+cp -R supportops/backend/routes supportops-backend/
+```
+
+## 4) Configure your `.env`
+
+Update these values in `supportops-backend/.env`:
+
+```
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=supportops
+DB_USERNAME=root
+DB_PASSWORD=your_password
+```
+
+## 5) Run migrations + seed demo data
+
+```bash
+cd supportops-backend
+php artisan migrate
+php artisan db:seed --class=DemoSeeder
+```
+
+## 6) Start the API server
+
+```bash
+php artisan serve
+```
+
+The API will be available at `http://127.0.0.1:8000/api`.
+
+## Notes
+
+- The API is intentionally simple so it can be expanded with authentication (Laravel Sanctum), role-based permissions, and audit logging later.
+- If you prefer to keep everything inside this repo, you can move the generated Laravel app into `supportops/backend/runtime` and keep the MVP code in `supportops/backend` as a reference.
+supportops/backend/app/Http/Controllers/ChangeRequestController.php
+supportops/backend/app/Http/Controllers/ChangeRequestController.php
+New
++62
+-0
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\ChangeRequest;
+use Illuminate\Http\Request;
+
+class ChangeRequestController extends Controller
+{
+    public function index()
+    {
+        return ChangeRequest::latest()->get();
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'requested_by' => 'required|string|max:255',
+            'status' => 'required|string|max:50',
+            'risk_level' => 'required|string|max:50',
+            'planned_release_at' => 'nullable|date',
+            'approved_by' => 'nullable|string|max:255',
+            'deployment_notes' => 'nullable|string',
+        ]);
+
+        $changeRequest = ChangeRequest::create($validated);
+
+        return response()->json($changeRequest, 201);
+    }
+
+    public function show(ChangeRequest $changeRequest)
+    {
+        return $changeRequest;
+    }
+
+    public function update(Request $request, ChangeRequest $changeRequest)
+    {
+        $validated = $request->validate([
+            'title' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|required|string',
+            'requested_by' => 'sometimes|required|string|max:255',
+            'status' => 'sometimes|required|string|max:50',
+            'risk_level' => 'sometimes|required|string|max:50',
+            'planned_release_at' => 'nullable|date',
+            'approved_by' => 'nullable|string|max:255',
+            'deployment_notes' => 'nullable|string',
+        ]);
+
+        $changeRequest->update($validated);
+
+        return $changeRequest->fresh();
+    }
+
+    public function destroy(ChangeRequest $changeRequest)
+    {
+        $changeRequest->delete();
+
+        return response()->noContent();
+    }
+}
+supportops/backend/app/Http/Controllers/IncidentController.php
+supportops/backend/app/Http/Controllers/IncidentController.php
+New
++60
+-0
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Incident;
+use Illuminate\Http\Request;
+
+class IncidentController extends Controller
+{
+    public function index()
+    {
+        return Incident::with(['rootCauseAnalysis', 'knowledgeBaseArticles'])->latest()->get();
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'status' => 'required|string|max:50',
+            'priority' => 'required|string|max:50',
+            'reported_by' => 'required|string|max:255',
+            'assigned_to' => 'nullable|string|max:255',
+            'resolved_at' => 'nullable|date',
+        ]);
+
+        $incident = Incident::create($validated);
+
+        return response()->json($incident, 201);
+    }
+
+    public function show(Incident $incident)
+    {
+        return $incident->load(['rootCauseAnalysis', 'knowledgeBaseArticles']);
+    }
+
+    public function update(Request $request, Incident $incident)
+    {
+        $validated = $request->validate([
+            'title' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|required|string',
+            'status' => 'sometimes|required|string|max:50',
+            'priority' => 'sometimes|required|string|max:50',
+            'reported_by' => 'sometimes|required|string|max:255',
+            'assigned_to' => 'nullable|string|max:255',
+            'resolved_at' => 'nullable|date',
+        ]);
+
+        $incident->update($validated);
+
+        return $incident->fresh(['rootCauseAnalysis', 'knowledgeBaseArticles']);
+    }
+
+    public function destroy(Incident $incident)
+    {
+        $incident->delete();
+
+        return response()->noContent();
+    }
+}
+supportops/backend/app/Http/Controllers/KnowledgeBaseController.php
+supportops/backend/app/Http/Controllers/KnowledgeBaseController.php
+New
++61
+-0
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\KnowledgeBaseArticle;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+
+class KnowledgeBaseController extends Controller
+{
+    public function index()
+    {
+        return KnowledgeBaseArticle::latest()->get();
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'category' => 'required|string|max:100',
+            'content' => 'required|string',
+            'visibility' => 'required|string|max:50',
+        ]);
+
+        $validated['slug'] = Str::slug($validated['title']);
+
+        $article = KnowledgeBaseArticle::create($validated);
+
+        return response()->json($article, 201);
+    }
+
+    public function show(KnowledgeBaseArticle $knowledgeBaseArticle)
+    {
+        return $knowledgeBaseArticle;
+    }
+
+    public function update(Request $request, KnowledgeBaseArticle $knowledgeBaseArticle)
+    {
+        $validated = $request->validate([
+            'title' => 'sometimes|required|string|max:255',
+            'category' => 'sometimes|required|string|max:100',
+            'content' => 'sometimes|required|string',
+            'visibility' => 'sometimes|required|string|max:50',
+        ]);
+
+        if (array_key_exists('title', $validated)) {
+            $validated['slug'] = Str::slug($validated['title']);
+        }
+
+        $knowledgeBaseArticle->update($validated);
+
+        return $knowledgeBaseArticle->fresh();
+    }
+
+    public function destroy(KnowledgeBaseArticle $knowledgeBaseArticle)
+    {
+        $knowledgeBaseArticle->delete();
+
+        return response()->noContent();
+    }
+}
+supportops/backend/app/Http/Controllers/ReportController.php
+supportops/backend/app/Http/Controllers/ReportController.php
+New
++48
+-0
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Report;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class ReportController extends Controller
+{
+    public function index()
+    {
+        return Report::where('is_active', true)->latest()->get();
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'sql_query' => 'required|string',
+            'is_active' => 'boolean',
+        ]);
+
+        $report = Report::create($validated);
+
+        return response()->json($report, 201);
+    }
+
+    public function show(Report $report)
+    {
+        return $report;
+    }
+
+    public function run(Report $report)
+    {
+        if (! $report->is_active) {
+            return response()->json(['message' => 'Report is disabled.'], 403);
+        }
+
+        $results = DB::select($report->sql_query);
+
+        return response()->json([
+            'report' => $report,
+            'results' => $results,
+        ]);
+    }
+}
+supportops/backend/app/Http/Controllers/RootCauseAnalysisController.php
+supportops/backend/app/Http/Controllers/RootCauseAnalysisController.php
+New
++33
+-0
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Incident;
+use App\Models\RootCauseAnalysis;
+use Illuminate\Http\Request;
+
+class RootCauseAnalysisController extends Controller
+{
+    public function store(Request $request, Incident $incident)
+    {
+        $validated = $request->validate([
+            'summary' => 'required|string',
+            'category' => 'required|string|max:100',
+            'impact' => 'required|string',
+            'resolution' => 'required|string',
+            'preventative_actions' => 'nullable|string',
+        ]);
+
+        $rca = RootCauseAnalysis::updateOrCreate(
+            ['incident_id' => $incident->id],
+            $validated + ['incident_id' => $incident->id]
+        );
+
+        return response()->json($rca, 201);
+    }
+
+    public function show(Incident $incident)
+    {
+        return $incident->rootCauseAnalysis;
+    }
+}
+supportops/backend/app/Models/ChangeRequest.php
+supportops/backend/app/Models/ChangeRequest.php
+New
++26
+-0
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class ChangeRequest extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'title',
+        'description',
+        'requested_by',
+        'status',
+        'risk_level',
+        'planned_release_at',
+        'approved_by',
+        'deployment_notes',
+    ];
+
+    protected $casts = [
+        'planned_release_at' => 'datetime',
+    ];
+}
+supportops/backend/app/Models/Incident.php
+supportops/backend/app/Models/Incident.php
+New
++35
+-0
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Incident extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'title',
+        'description',
+        'status',
+        'priority',
+        'reported_by',
+        'assigned_to',
+        'resolved_at',
+    ];
+
+    protected $casts = [
+        'resolved_at' => 'datetime',
+    ];
+
+    public function rootCauseAnalysis()
+    {
+        return $this->hasOne(RootCauseAnalysis::class);
+    }
+
+    public function knowledgeBaseArticles()
+    {
+        return $this->belongsToMany(KnowledgeBaseArticle::class, 'incident_kb_articles');
+    }
+}
+supportops/backend/app/Models/KnowledgeBaseArticle.php
+supportops/backend/app/Models/KnowledgeBaseArticle.php
+New
++24
+-0
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class KnowledgeBaseArticle extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'title',
+        'slug',
+        'category',
+        'content',
+        'visibility',
+    ];
+
+    public function incidents()
+    {
+        return $this->belongsToMany(Incident::class, 'incident_kb_articles');
+    }
+}
+supportops/backend/app/Models/Report.php
+supportops/backend/app/Models/Report.php
+New
++22
+-0
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Report extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name',
+        'description',
+        'sql_query',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+}
+supportops/backend/app/Models/RootCauseAnalysis.php
+supportops/backend/app/Models/RootCauseAnalysis.php
+New
++25
+-0
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class RootCauseAnalysis extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'incident_id',
+        'summary',
+        'category',
+        'impact',
+        'resolution',
+        'preventative_actions',
+    ];
+
+    public function incident()
+    {
+        return $this->belongsTo(Incident::class);
+    }
+}
+supportops/backend/database/migrations/2025_01_01_000001_create_incidents_table.php
+supportops/backend/database/migrations/2025_01_01_000001_create_incidents_table.php
+New
++28
+-0
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('incidents', function (Blueprint $table) {
+            $table->id();
+            $table->string('title');
+            $table->text('description');
+            $table->string('status');
+            $table->string('priority');
+            $table->string('reported_by');
+            $table->string('assigned_to')->nullable();
+            $table->timestamp('resolved_at')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('incidents');
+    }
+};
+supportops/backend/database/migrations/2025_01_01_000002_create_root_cause_analyses_table.php
+supportops/backend/database/migrations/2025_01_01_000002_create_root_cause_analyses_table.php
+New
++27
+-0
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('root_cause_analyses', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('incident_id')->constrained()->cascadeOnDelete();
+            $table->text('summary');
+            $table->string('category');
+            $table->text('impact');
+            $table->text('resolution');
+            $table->text('preventative_actions')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('root_cause_analyses');
+    }
+};
+supportops/backend/database/migrations/2025_01_01_000003_create_knowledge_base_articles_table.php
+…rtops-mvp/backend/database/migrations/2025_01_01_000003_create_knowledge_base_articles_table.php
+New
++26
+-0
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('knowledge_base_articles', function (Blueprint $table) {
+            $table->id();
+            $table->string('title');
+            $table->string('slug')->unique();
+            $table->string('category');
+            $table->longText('content');
+            $table->string('visibility')->default('internal');
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('knowledge_base_articles');
+    }
+};
+supportops/backend/database/migrations/2025_01_01_000004_create_incident_kb_articles_table.php
+supportops/backend/database/migrations/2025_01_01_000004_create_incident_kb_articles_table.php
+New
++23
+-0
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('incident_kb_articles', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('incident_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('knowledge_base_article_id')->constrained()->cascadeOnDelete();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('incident_kb_articles');
+    }
+};
+supportops/backend/database/migrations/2025_01_01_000005_create_change_requests_table.php
+supportops/backend/database/migrations/2025_01_01_000005_create_change_requests_table.php
+New
++29
+-0
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('change_requests', function (Blueprint $table) {
+            $table->id();
+            $table->string('title');
+            $table->text('description');
+            $table->string('requested_by');
+            $table->string('status');
+            $table->string('risk_level');
+            $table->timestamp('planned_release_at')->nullable();
+            $table->string('approved_by')->nullable();
+            $table->text('deployment_notes')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('change_requests');
+    }
+};
+supportops/backend/database/migrations/2025_01_01_000006_create_reports_table.php
+supportops/backend/database/migrations/2025_01_01_000006_create_reports_table.php
+New
++25
+-0
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('reports', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->longText('sql_query');
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('reports');
+    }
+};
+supportops/backend/database/seeders/DatabaseSeeder.php
+supportops/backend/database/seeders/DatabaseSeeder.php
+New
++13
+-0
+
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $this->call(DemoSeeder::class);
+    }
+}
+supportops/backend/database/seeders/DemoSeeder.php
+supportops/backend/database/seeders/DemoSeeder.php
+New
++62
+-0
+
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\ChangeRequest;
+use App\Models\Incident;
+use App\Models\KnowledgeBaseArticle;
+use App\Models\Report;
+use App\Models\RootCauseAnalysis;
+use Illuminate\Database\Seeder;
+
+class DemoSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $incident = Incident::create([
+            'title' => 'Login failures for staff portal',
+            'description' => 'Users report SSO timeouts when accessing the portal.',
+            'status' => 'open',
+            'priority' => 'high',
+            'reported_by' => 'Helpdesk',
+            'assigned_to' => 'Application Support',
+        ]);
+
+        RootCauseAnalysis::create([
+            'incident_id' => $incident->id,
+            'summary' => 'Token issuer latency caused session validation errors.',
+            'category' => 'Authentication',
+            'impact' => 'Staff could not access CRM for 2 hours.',
+            'resolution' => 'Failover to backup token issuer.',
+            'preventative_actions' => 'Add proactive latency monitoring and alerts.',
+        ]);
+
+        $kb = KnowledgeBaseArticle::create([
+            'title' => 'SSO timeout troubleshooting checklist',
+            'slug' => 'sso-timeout-troubleshooting-checklist',
+            'category' => 'Authentication',
+            'content' => 'Verify issuer health, check DNS, confirm token expiry, validate firewall rules.',
+            'visibility' => 'internal',
+        ]);
+
+        $incident->knowledgeBaseArticles()->attach($kb->id);
+
+        ChangeRequest::create([
+            'title' => 'Enable secondary token issuer routing',
+            'description' => 'Route 30% of traffic to the standby issuer to validate readiness.',
+            'requested_by' => 'Infrastructure Team',
+            'status' => 'pending-approval',
+            'risk_level' => 'medium',
+            'planned_release_at' => now()->addWeek(),
+            'approved_by' => null,
+            'deployment_notes' => 'Validate auth logs and rollback plan before deployment.',
+        ]);
+
+        Report::create([
+            'name' => 'Incidents by status',
+            'description' => 'Counts incidents grouped by status.',
+            'sql_query' => 'SELECT status, COUNT(*) AS total FROM incidents GROUP BY status;',
+            'is_active' => true,
+        ]);
+    }
+}
+supportops/backend/routes/api.php
+supportops/backend/routes/api.php
+New
++20
+-0
+
+<?php
+
+use App\Http\Controllers\ChangeRequestController;
+use App\Http\Controllers\IncidentController;
+use App\Http\Controllers\KnowledgeBaseController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RootCauseAnalysisController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/health', fn () => ['status' => 'ok']);
+
+Route::apiResource('incidents', IncidentController::class);
+Route::get('incidents/{incident}/root-cause-analysis', [RootCauseAnalysisController::class, 'show']);
+Route::post('incidents/{incident}/root-cause-analysis', [RootCauseAnalysisController::class, 'store']);
+
+Route::apiResource('knowledge-base', KnowledgeBaseController::class);
+Route::apiResource('change-requests', ChangeRequestController::class);
+
+Route::apiResource('reports', ReportController::class)->only(['index', 'show', 'store']);
+Route::post('reports/{report}/run', [ReportController::class, 'run']);
+supportops/backend/routes/web.php
+supportops/backend/routes/web.php
+New
++5
+-0
+
+<?php
+
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', fn () => 'SupportOps Desk API');
+supportops/frontend/astro.config.mjs
+supportops/frontend/astro.config.mjs
+New
++5
+-0
+
+import { defineConfig } from 'astro/config';
+
+export default defineConfig({
+  output: 'server'
+});
+supportops/frontend/package.json
+supportops/frontend/package.json
+New
++12
+-0
+
+{
+  "name": "supportops-frontend",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^4.16.0"
+  }
+}
+supportops/frontend/src/layouts/BaseLayout.astro
+supportops/frontend/src/layouts/BaseLayout.astro
+New
++82
+-0
+
+---
+const { title = 'SupportOps Desk' } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: 'Inter', system-ui, sans-serif;
+        background: #f6f8fb;
+        color: #1f2937;
+      }
+      body {
+        margin: 0;
+      }
+      header {
+        background: #0f172a;
+        color: #f8fafc;
+        padding: 1.5rem 2rem;
+      }
+      nav a {
+        color: #e2e8f0;
+        margin-right: 1rem;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      main {
+        padding: 2rem;
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+      }
+      .card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+      }
+      .pill {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 999px;
+        background: #e2e8f0;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #0f172a;
+      }
+      footer {
+        padding: 2rem;
+        text-align: center;
+        color: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>SupportOps Desk</h1>
+      <p>Incident management and support analytics for mission-driven teams.</p>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/incidents">Incidents</a>
+        <a href="/knowledge-base">Knowledge Base</a>
+        <a href="/change-requests">Change Requests</a>
+        <a href="/reports">Reports</a>
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer>
+      MVP demo • Built with Astro + Laravel
+    </footer>
+  </body>
+</html>
+supportops/frontend/src/pages/change-requests.astro
+supportops/frontend/src/pages/change-requests.astro
+New
++20
+-0
+
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const response = await fetch(`${apiBase}/change-requests`);
+const changeRequests = response.ok ? await response.json() : [];
+---
+<BaseLayout title="SupportOps Desk · Change Requests">
+  <h2>Change Requests</h2>
+  <div class="grid">
+    {changeRequests.map((change) => (
+      <article class="card" key={change.id}>
+        <h3>{change.title}</h3>
+        <p>{change.description}</p>
+        <p class="pill">{change.status}</p>
+        <p class="pill">Risk: {change.risk_level}</p>
+        <p><strong>Requested by:</strong> {change.requested_by}</p>
+      </article>
+    ))}
+  </div>
+</BaseLayout>
+supportops/frontend/src/pages/incidents.astro
+supportops/frontend/src/pages/incidents.astro
+New
++20
+-0
+
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const response = await fetch(`${apiBase}/incidents`);
+const incidents = response.ok ? await response.json() : [];
+---
+<BaseLayout title="SupportOps Desk · Incidents">
+  <h2>Incidents</h2>
+  <div class="grid">
+    {incidents.map((incident) => (
+      <article class="card" key={incident.id}>
+        <h3>{incident.title}</h3>
+        <p>{incident.description}</p>
+        <p class="pill">{incident.status}</p>
+        <p class="pill">{incident.priority}</p>
+        <p><strong>Reported by:</strong> {incident.reported_by}</p>
+      </article>
+    ))}
+  </div>
+</BaseLayout>
+supportops/frontend/src/pages/index.astro
+supportops/frontend/src/pages/index.astro
+New
++39
+-0
+
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const [incidentsRes, kbRes, changeRes] = await Promise.all([
+  fetch(`${apiBase}/incidents`),
+  fetch(`${apiBase}/knowledge-base`),
+  fetch(`${apiBase}/change-requests`)
+]);
+const incidents = incidentsRes.ok ? await incidentsRes.json() : [];
+const knowledgeBase = kbRes.ok ? await kbRes.json() : [];
+const changeRequests = changeRes.ok ? await changeRes.json() : [];
+---
+<BaseLayout title="SupportOps Desk · Dashboard">
+  <section class="grid">
+    <div class="card">
+      <h2>Open Incidents</h2>
+      <p class="pill">{incidents.length} tracked</p>
+      <p>Track, triage, and resolve incidents faster.</p>
+    </div>
+    <div class="card">
+      <h2>Knowledge Base</h2>
+      <p class="pill">{knowledgeBase.length} articles</p>
+      <p>Reusable playbooks for frontline teams.</p>
+    </div>
+    <div class="card">
+      <h2>Change Requests</h2>
+      <p class="pill">{changeRequests.length} queued</p>
+      <p>Document releases and CAB decisions.</p>
+    </div>
+  </section>
+  <section class="card" style="margin-top: 2rem;">
+    <h3>Quick Start</h3>
+    <ol>
+      <li>Seed demo data in Laravel with <code>php artisan db:seed</code>.</li>
+      <li>Run the API at <code>http://127.0.0.1:8000</code>.</li>
+      <li>Set <code>PUBLIC_API_BASE_URL</code> if your API is on another host.</li>
+    </ol>
+  </section>
+</BaseLayout>
+supportops/frontend/src/pages/knowledge-base.astro
+supportops/frontend/src/pages/knowledge-base.astro
+New
++19
+-0
+
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const response = await fetch(`${apiBase}/knowledge-base`);
+const articles = response.ok ? await response.json() : [];
+---
+<BaseLayout title="SupportOps Desk · Knowledge Base">
+  <h2>Knowledge Base</h2>
+  <div class="grid">
+    {articles.map((article) => (
+      <article class="card" key={article.id}>
+        <h3>{article.title}</h3>
+        <p class="pill">{article.category}</p>
+        <p>{article.content}</p>
+        <p><strong>Visibility:</strong> {article.visibility}</p>
+      </article>
+    ))}
+  </div>
+</BaseLayout>
+supportops/frontend/src/pages/reports.astro
+supportops/frontend/src/pages/reports.astro
+New
++73
+-0
+
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const response = await fetch(`${apiBase}/reports`);
+const reports = response.ok ? await response.json() : [];
+---
+<BaseLayout title="SupportOps Desk · Reports">
+  <h2>Reports</h2>
+  <section class="card" style="margin-bottom: 2rem;">
+    <h3>Report Filters</h3>
+    <p>Use the standard filters below or describe the change you want in the AI dialog.</p>
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+      <label class="card" style="box-shadow: none; border: 1px solid #e2e8f0;">
+        <span>Status</span>
+        <select style="display: block; width: 100%; margin-top: 0.5rem;">
+          <option>All</option>
+          <option>Open</option>
+          <option>In Progress</option>
+          <option>Resolved</option>
+        </select>
+      </label>
+      <label class="card" style="box-shadow: none; border: 1px solid #e2e8f0;">
+        <span>Priority</span>
+        <select style="display: block; width: 100%; margin-top: 0.5rem;">
+          <option>All</option>
+          <option>Low</option>
+          <option>Medium</option>
+          <option>High</option>
+        </select>
+      </label>
+      <label class="card" style="box-shadow: none; border: 1px solid #e2e8f0;">
+        <span>Date Range</span>
+        <select style="display: block; width: 100%; margin-top: 0.5rem;">
+          <option>Last 7 days</option>
+          <option>Last 30 days</option>
+          <option>Quarter to date</option>
+          <option>Year to date</option>
+        </select>
+      </label>
+    </div>
+  </section>
+  <section class="card" style="margin-bottom: 2rem;">
+    <h3>AI Dialog (Request Report Changes)</h3>
+    <p>Ask for the report update you need, like: “Show incidents by category for Q2.”</p>
+    <div style="display: grid; gap: 1rem;">
+      <textarea
+        rows="4"
+        placeholder="Describe the report change or filter you want..."
+        style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid #cbd5f5;"
+      ></textarea>
+      <button
+        type="button"
+        style="justify-self: start; background: #0f172a; color: #f8fafc; border: none; padding: 0.6rem 1.2rem; border-radius: 999px; font-weight: 600;"
+      >
+        Send Request
+      </button>
+      <div style="background: #f8fafc; border-radius: 8px; padding: 0.75rem; border: 1px dashed #cbd5f5;">
+        <strong>AI Response Preview:</strong>
+        <p style="margin-top: 0.5rem;">“Got it. I’ll regroup the report by category and limit the date range to Q2.”</p>
+      </div>
+    </div>
+  </section>
+  <div class="grid">
+    {reports.map((report) => (
+      <article class="card" key={report.id}>
+        <h3>{report.name}</h3>
+        <p>{report.description}</p>
+        <p class="pill">Active</p>
+        <code style="display: block; margin-top: 0.5rem; white-space: pre-wrap;">{report.sql_query}</code>
+      </article>
+    ))}
+  </div>
+</BaseLayout>
+supportops/pitch.md
+supportops/pitch.md
+New
++27
+-0
+
+# SupportOps Desk – MVP Pitch Copy
+
+**SupportOps Desk** is a lightweight application support and incident management platform designed for mission-driven organizations like the CFPC. It mirrors real-world responsibilities of an Application Support Specialist—incident response, root cause analysis, knowledge base creation, change management, and reporting.
+
+## What it does
+
+- **Incident management** with priority, status, assignment, and resolution timelines.
+- **Root Cause Analysis (RCA)** logging with preventative actions to reduce repeat incidents.
+- **Knowledge Base** articles linked directly to incidents for faster troubleshooting.
+- **Change Request tracking** with risk levels, approvals, and deployment notes.
+- **SQL-backed reporting** to surface trends, SLA risks, and workload distribution.
+
+## Why it’s valuable
+
+SupportOps Desk reduces downtime and improves communication across IT, business, and vendor teams. It documents institutional knowledge, provides visibility into support workload, and enables faster decision-making—core outcomes aligned with the CFPC’s mission of continuous improvement and responsive service.
+
+## Tech highlights
+
+- **Laravel API + MySQL** for data integrity and reporting.
+- **Astro frontend** for fast, accessible dashboards.
+- Designed to integrate with SSRS/Power BI exports later.
+
+## Future-ready enhancements
+
+- Role-based access and audit logging.
+- SLA timers, escalation workflows, and notification routing.
+- Data export feeds for BI tools.
+supportops/schema.sql
+supportops/schema.sql
+New
++70
+-0
+
+CREATE TABLE incidents (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  priority VARCHAR(50) NOT NULL,
+  reported_by VARCHAR(255) NOT NULL,
+  assigned_to VARCHAR(255) NULL,
+  resolved_at TIMESTAMP NULL,
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE root_cause_analyses (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  incident_id BIGINT UNSIGNED NOT NULL,
+  summary TEXT NOT NULL,
+  category VARCHAR(100) NOT NULL,
+  impact TEXT NOT NULL,
+  resolution TEXT NOT NULL,
+  preventative_actions TEXT NULL,
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_root_cause_incident FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE CASCADE
+);
+
+CREATE TABLE knowledge_base_articles (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) NOT NULL UNIQUE,
+  category VARCHAR(100) NOT NULL,
+  content LONGTEXT NOT NULL,
+  visibility VARCHAR(50) NOT NULL DEFAULT 'internal',
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE incident_kb_articles (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  incident_id BIGINT UNSIGNED NOT NULL,
+  knowledge_base_article_id BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_incident_kb_incident FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE CASCADE,
+  CONSTRAINT fk_incident_kb_article FOREIGN KEY (knowledge_base_article_id) REFERENCES knowledge_base_articles(id) ON DELETE CASCADE
+);
+
+CREATE TABLE change_requests (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  requested_by VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  risk_level VARCHAR(50) NOT NULL,
+  planned_release_at TIMESTAMP NULL,
+  approved_by VARCHAR(255) NULL,
+  deployment_notes TEXT NULL,
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE reports (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT NULL,
+  sql_query LONGTEXT NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

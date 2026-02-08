@@ -1,0 +1,73 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const response = await fetch(`${apiBase}/reports`);
+const reports = response.ok ? await response.json() : [];
+---
+<BaseLayout title="SupportOps Desk · Reports">
+  <h2>Reports</h2>
+  <section class="card" style="margin-bottom: 2rem;">
+    <h3>Report Filters</h3>
+    <p>Use the standard filters below or describe the change you want in the AI dialog.</p>
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+      <label class="card" style="box-shadow: none; border: 1px solid #e2e8f0;">
+        <span>Status</span>
+        <select style="display: block; width: 100%; margin-top: 0.5rem;">
+          <option>All</option>
+          <option>Open</option>
+          <option>In Progress</option>
+          <option>Resolved</option>
+        </select>
+      </label>
+      <label class="card" style="box-shadow: none; border: 1px solid #e2e8f0;">
+        <span>Priority</span>
+        <select style="display: block; width: 100%; margin-top: 0.5rem;">
+          <option>All</option>
+          <option>Low</option>
+          <option>Medium</option>
+          <option>High</option>
+        </select>
+      </label>
+      <label class="card" style="box-shadow: none; border: 1px solid #e2e8f0;">
+        <span>Date Range</span>
+        <select style="display: block; width: 100%; margin-top: 0.5rem;">
+          <option>Last 7 days</option>
+          <option>Last 30 days</option>
+          <option>Quarter to date</option>
+          <option>Year to date</option>
+        </select>
+      </label>
+    </div>
+  </section>
+  <section class="card" style="margin-bottom: 2rem;">
+    <h3>AI Dialog (Request Report Changes)</h3>
+    <p>Ask for the report update you need, like: “Show incidents by category for Q2.”</p>
+    <div style="display: grid; gap: 1rem;">
+      <textarea
+        rows="4"
+        placeholder="Describe the report change or filter you want..."
+        style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid #cbd5f5;"
+      ></textarea>
+      <button
+        type="button"
+        style="justify-self: start; background: #0f172a; color: #f8fafc; border: none; padding: 0.6rem 1.2rem; border-radius: 999px; font-weight: 600;"
+      >
+        Send Request
+      </button>
+      <div style="background: #f8fafc; border-radius: 8px; padding: 0.75rem; border: 1px dashed #cbd5f5;">
+        <strong>AI Response Preview:</strong>
+        <p style="margin-top: 0.5rem;">“Got it. I’ll regroup the report by category and limit the date range to Q2.”</p>
+      </div>
+    </div>
+  </section>
+  <div class="grid">
+    {reports.map((report) => (
+      <article class="card" key={report.id}>
+        <h3>{report.name}</h3>
+        <p>{report.description}</p>
+        <p class="pill">Active</p>
+        <code style="display: block; margin-top: 0.5rem; white-space: pre-wrap;">{report.sql_query}</code>
+      </article>
+    ))}
+  </div>
+</BaseLayout>

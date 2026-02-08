@@ -1,0 +1,39 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const [incidentsRes, kbRes, changeRes] = await Promise.all([
+  fetch(`${apiBase}/incidents`),
+  fetch(`${apiBase}/knowledge-base`),
+  fetch(`${apiBase}/change-requests`)
+]);
+const incidents = incidentsRes.ok ? await incidentsRes.json() : [];
+const knowledgeBase = kbRes.ok ? await kbRes.json() : [];
+const changeRequests = changeRes.ok ? await changeRes.json() : [];
+---
+<BaseLayout title="SupportOps Desk · Dashboard">
+  <section class="grid">
+    <div class="card">
+      <h2>Open Incidents</h2>
+      <p class="pill">{incidents.length} tracked</p>
+      <p>Track, triage, and resolve incidents faster.</p>
+    </div>
+    <div class="card">
+      <h2>Knowledge Base</h2>
+      <p class="pill">{knowledgeBase.length} articles</p>
+      <p>Reusable playbooks for frontline teams.</p>
+    </div>
+    <div class="card">
+      <h2>Change Requests</h2>
+      <p class="pill">{changeRequests.length} queued</p>
+      <p>Document releases and CAB decisions.</p>
+    </div>
+  </section>
+  <section class="card" style="margin-top: 2rem;">
+    <h3>Quick Start</h3>
+    <ol>
+      <li>Seed demo data in Laravel with <code>php artisan db:seed</code>.</li>
+      <li>Run the API at <code>http://127.0.0.1:8000</code>.</li>
+      <li>Set <code>PUBLIC_API_BASE_URL</code> if your API is on another host.</li>
+    </ol>
+  </section>
+</BaseLayout>
