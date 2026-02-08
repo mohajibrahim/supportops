@@ -1,0 +1,20 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const response = await fetch(`${apiBase}/change-requests`);
+const changeRequests = response.ok ? await response.json() : [];
+---
+<BaseLayout title="SupportOps Desk · Change Requests">
+  <h2>Change Requests</h2>
+  <div class="grid">
+    {changeRequests.map((change) => (
+      <article class="card" key={change.id}>
+        <h3>{change.title}</h3>
+        <p>{change.description}</p>
+        <p class="pill">{change.status}</p>
+        <p class="pill">Risk: {change.risk_level}</p>
+        <p><strong>Requested by:</strong> {change.requested_by}</p>
+      </article>
+    ))}
+  </div>
+</BaseLayout>
