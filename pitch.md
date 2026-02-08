@@ -26,7 +26,7 @@
 
 
 
-SupportOps Desk reduces downtime and improves communication across IT, business, and vendor teams. It documents institutional knowledge, provides visibility into support workload, and enables faster decision-making—core outcomes aligned with the CFPC’s mission of continuous improvement and responsive service.
+SupportOps Desk reduces downtime and improves communication across IT, business, and vendor teams. It documents institutional knowledge, provides visibility into support workload, and enables faster decision-making for core outcomes aligned with the CFPC’s mission of continuous improvement and responsive service.
 
 
 
