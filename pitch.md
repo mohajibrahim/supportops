@@ -2,7 +2,7 @@
 
 
 
-\*\*SupportOps Desk\*\* is a lightweight application support and incident management platform designed for mission-driven organizations like the CFPC. It mirrors real-world responsibilities of an Application Support Specialist—incident response, root cause analysis, knowledge base creation, change management, and reporting.
+\*\*SupportOps Desk\*\* is a lightweight application support and incident management platform designed for mission-driven organizations like the CFPC. It mirrors real-world responsibilities of an Application Support Specialist for incident response, root cause analysis, knowledge base creation, change management, and reporting.
 
 
 
