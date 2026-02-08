@@ -68,7 +68,7 @@ If you want this MVP in a dedicated folder (for example `~/supportops`), copy it
 
 mkdir -p ~/supportops
 
-cp -R /path/to/ai-agents-for-beginners/supportops/\* ~/supportops/
+cp -R /path/to/supportops/\* ~/supportops/
 
 ```
 
